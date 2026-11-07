@@ -1,7 +1,8 @@
 // Browser smoke of the real app: language detection and memory, RTL, the
 // counter, no horizontal scroll on a phone, no console errors. With
 // --preview it runs against a fresh production build and also checks that
-// the service worker makes the app work offline.
+// the service worker makes the app work offline and that a new deploy
+// reaches a page that is already open (phones suspend pages, never close them).
 //
 //   npm run smoke               # dev server
 //   npm run smoke -- --preview  # production build + offline check
@@ -10,6 +11,7 @@
 // Prints one line per step; exits 1 on the first failed step or on any
 // console error. New checks are new steps here, not new scripts.
 
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { check, launch, parseArgs, VIEWPORTS } from './lib/harness.mjs';
 
 const flags = parseArgs(process.argv.slice(2));
@@ -71,6 +73,26 @@ try {
       check((await page.locator('h1').textContent()) === 'Web App Template', 'the app did not load offline');
       await page.click('#count');
       check((await page.locator('#clicked').textContent()) === 'Clicked 1 time', 'the app does not run offline');
+      await context.close();
+    });
+
+    await step('a new deploy reaches an already open page', async () => {
+      const { page, context } = await app.open();
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      await page.evaluate(() => (window.oldPage = true));
+      // A changed sw.js is what a deploy looks like to the browser.
+      const worker = 'dist/sw.js';
+      const original = readFileSync(worker, 'utf8');
+      appendFileSync(worker, `\n// deploy ${Date.now()}\n`);
+      try {
+        const reloaded = page.waitForEvent('load', { timeout: 10_000 }).catch(() => null);
+        // What a phone does when the user returns to a suspended page.
+        await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        check((await reloaded) !== null, 'the open page never switched to the new version');
+        check((await page.evaluate(() => window.oldPage)) === undefined, 'the page was not reloaded');
+      } finally {
+        writeFileSync(worker, original);
+      }
       await context.close();
     });
   }

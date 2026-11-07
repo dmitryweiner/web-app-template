@@ -47,7 +47,8 @@ browser (service worker, layout, workers) → a step in `scripts/smoke.mjs`.
   `plural.ts` — `Intl.PluralRules` helper.
 - `src/storage.ts` — versioned, validated settings in localStorage.
 - `src/sw-plugin.ts` — Vite plugin emitting `sw.js` that precaches the build;
-  `src/pwa.ts` — its registration.
+  `src/pwa.ts` — its registration, an update check on every return to the
+  page and a reload when a new version takes control (`_conventions/pwa.md`).
 - `src/style.css` — mobile first, logical properties, light and dark.
 - `public/` — manifest, icons (`icon.svg` is the source).
 - `scripts/lib/harness.mjs` — Playwright plumbing; `scripts/smoke.mjs` — the
